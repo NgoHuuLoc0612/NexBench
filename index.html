@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXBENCH — GPU · CPU Benchmark Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════ LOADING SCREEN ═══════════════════════ -->
+<div id="loader">
+  <div class="loader-inner">
+    <div class="loader-logo">NEXBENCH</div>
+    <div class="loader-bar-track"><div class="loader-bar" id="loaderBar"></div></div>
+    <div class="loader-status" id="loaderStatus">Initializing engine…</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ APP SHELL ═══════════════════════════ -->
+<div id="app" style="display:none">
+
+  <!-- TOP NAV -->
+  <header id="topnav">
+    <div class="nav-brand">
+      <span class="brand-icon">⬡</span>
+      <span class="brand-text">NEXBENCH</span>
+      <span class="brand-ver">v2.0</span>
+    </div>
+    <nav class="nav-tabs" id="navTabs">
+      <button class="nav-tab active" data-panel="dashboard">Dashboard</button>
+      <button class="nav-tab" data-panel="cpu">CPU Tests</button>
+      <button class="nav-tab" data-panel="gpu">GPU / Shader</button>
+      <button class="nav-tab" data-panel="memory">Memory</button>
+      <button class="nav-tab" data-panel="realtime">Realtime</button>
+      <button class="nav-tab" data-panel="volume3d">Volume 3D</button>
+      <button class="nav-tab" data-panel="history">History</button>
+    </nav>
+    <div class="nav-status">
+      <div class="status-dot" id="connDot"></div>
+      <span id="connLabel">Connecting…</span>
+    </div>
+  </header>
+
+  <!-- TICKER BAR -->
+  <div id="ticker">
+    <div class="ticker-inner" id="tickerInner">
+      <span class="tick-item">CPU <span id="tCpu">—</span>%</span>
+      <span class="tick-sep">·</span>
+      <span class="tick-item">RAM <span id="tRam">—</span>%</span>
+      <span class="tick-sep">·</span>
+      <span class="tick-item">TEMP <span id="tTemp">—</span>°C</span>
+      <span class="tick-sep">·</span>
+      <span class="tick-item">NET ↑<span id="tNetUp">—</span> ↓<span id="tNetDn">—</span> MB</span>
+    </div>
+  </div>
+
+  <!-- PANELS -->
+  <main id="panels">
+
+    <!-- ── DASHBOARD ─────────────────────────────────────────── -->
+    <section class="panel active" id="panel-dashboard">
+      <div class="panel-header">
+        <h1>System Dashboard</h1>
+        <button class="btn-primary" id="btnRunAll">▶ Run Full Suite</button>
+      </div>
+
+      <div class="sys-grid" id="sysGrid">
+        <div class="sys-card" id="cardCpu">
+          <div class="sys-card-title">CPU</div>
+          <div class="sys-card-main" id="cpuName">—</div>
+          <div class="sys-card-sub" id="cpuSub">—</div>
+          <div class="feat-badges" id="cpuFeats"></div>
+        </div>
+        <div class="sys-card" id="cardGpu">
+          <div class="sys-card-title">GPU</div>
+          <div class="sys-card-main" id="gpuName">—</div>
+          <div class="sys-card-sub" id="gpuSub">—</div>
+        </div>
+        <div class="sys-card" id="cardMem">
+          <div class="sys-card-title">MEMORY</div>
+          <div class="sys-card-main" id="memTotal">—</div>
+          <div class="sys-card-sub" id="memSub">—</div>
+          <div class="mem-bar-track"><div class="mem-bar" id="memBar"></div></div>
+        </div>
+        <div class="sys-card" id="cardOs">
+          <div class="sys-card-title">PLATFORM</div>
+          <div class="sys-card-main" id="osName">—</div>
+          <div class="sys-card-sub" id="osSub">—</div>
+        </div>
+      </div>
+
+      <!-- Gauge row -->
+      <div class="gauge-row">
+        <div class="gauge-wrap">
+          <canvas id="gaugeCpu" width="180" height="180"></canvas>
+          <div class="gauge-label">CPU Load</div>
+          <div class="gauge-val" id="gCpuVal">0%</div>
+        </div>
+        <div class="gauge-wrap">
+          <canvas id="gaugeRam" width="180" height="180"></canvas>
+          <div class="gauge-label">RAM Used</div>
+          <div class="gauge-val" id="gRamVal">0%</div>
+        </div>
+        <div class="gauge-wrap">
+          <canvas id="gaugeTemp" width="180" height="180"></canvas>
+          <div class="gauge-label">CPU Temp</div>
+          <div class="gauge-val" id="gTempVal">—°C</div>
+        </div>
+        <div class="gauge-wrap">
+          <canvas id="gaugeGpu" width="180" height="180"></canvas>
+          <div class="gauge-label">GPU Util</div>
+          <div class="gauge-val" id="gGpuVal">0%</div>
+        </div>
+      </div>
+
+      <!-- Score summary -->
+      <div class="score-section">
+        <div class="score-title">BENCHMARK SCORES</div>
+        <div class="score-grid" id="scoreGrid">
+          <div class="score-cell" id="sc-matmul"><span class="sc-name">MatMul</span><span class="sc-val">—</span><span class="sc-unit">GFLOPS</span></div>
+          <div class="score-cell" id="sc-fft"><span class="sc-name">FFT</span><span class="sc-val">—</span><span class="sc-unit">GFLOPS</span></div>
+          <div class="score-cell" id="sc-membw"><span class="sc-name">Memory BW</span><span class="sc-val">—</span><span class="sc-unit">GB/s</span></div>
+          <div class="score-cell" id="sc-int"><span class="sc-name">Integer</span><span class="sc-val">—</span><span class="sc-unit">GOPS</span></div>
+          <div class="score-cell" id="sc-vol"><span class="sc-name">Volume Shader</span><span class="sc-val">—</span><span class="sc-unit">GFLOPS</span></div>
+          <div class="score-cell" id="sc-branch"><span class="sc-name">Branch IPC</span><span class="sc-val">—</span><span class="sc-unit">GOPS</span></div>
+        </div>
+        <canvas id="radarCanvas" width="380" height="380"></canvas>
+      </div>
+    </section>
+
+    <!-- ── CPU TESTS ──────────────────────────────────────────── -->
+    <section class="panel" id="panel-cpu">
+      <div class="panel-header"><h1>CPU Benchmarks</h1></div>
+
+      <div class="bench-grid">
+
+        <!-- MatMul -->
+        <div class="bench-card">
+          <div class="bench-card-title">Matrix Multiply (F32)</div>
+          <div class="bench-controls">
+            <label>N (size) <input type="range" id="mmN" min="64" max="512" step="64" value="256"><span id="mmNVal">256</span></label>
+            <label>Iterations <input type="range" id="mmIter" min="1" max="10" value="3"><span id="mmIterVal">3</span></label>
+            <label>Threads <input type="range" id="mmThreads" min="1" max="16" value="4"><span id="mmThreadsVal">4</span></label>
+            <button class="btn-run" data-bench="matmul">RUN</button>
+          </div>
+          <canvas id="chartMatmul" width="400" height="180"></canvas>
+          <div class="bench-result" id="resMatmul">Not run yet</div>
+        </div>
+
+        <!-- FFT -->
+        <div class="bench-card">
+          <div class="bench-card-title">FFT Radix-2 (Complex F64)</div>
+          <div class="bench-controls">
+            <label>Size (2^n) <select id="fftN"><option value="4096">4K</option><option value="16384">16K</option><option value="65536" selected>64K</option><option value="262144">256K</option><option value="1048576">1M</option></select></label>
+            <label>Iterations <input type="range" id="fftIter" min="1" max="50" value="10"><span id="fftIterVal">10</span></label>
+            <label>Threads <input type="range" id="fftThreads" min="1" max="16" value="4"><span id="fftThreadsVal">4</span></label>
+            <button class="btn-run" data-bench="fft">RUN</button>
+          </div>
+          <canvas id="chartFft" width="400" height="180"></canvas>
+          <div class="bench-result" id="resFft">Not run yet</div>
+        </div>
+
+        <!-- Integer -->
+        <div class="bench-card">
+          <div class="bench-card-title">Integer Throughput (Popcount + LCG)</div>
+          <div class="bench-controls">
+            <label>Iterations <input type="range" id="intIter" min="10" max="200" value="50"><span id="intIterVal">50</span></label>
+            <button class="btn-run" data-bench="integer">RUN</button>
+          </div>
+          <canvas id="chartInt" width="400" height="180"></canvas>
+          <div class="bench-result" id="resInt">Not run yet</div>
+        </div>
+
+        <!-- Branch Torture -->
+        <div class="bench-card">
+          <div class="bench-card-title">Branch Misprediction Torture</div>
+          <div class="bench-controls">
+            <label>Iterations <input type="range" id="brIter" min="10" max="200" value="50"><span id="brIterVal">50</span></label>
+            <button class="btn-run" data-bench="branch_torture">RUN</button>
+          </div>
+          <canvas id="chartBranch" width="400" height="180"></canvas>
+          <div class="bench-result" id="resBranch">Not run yet</div>
+        </div>
+
+        <!-- Stress Suite -->
+        <div class="bench-card bench-card-wide">
+          <div class="bench-card-title">Full CPU Stress Suite</div>
+          <div class="bench-controls">
+            <label>Duration (s) <input type="range" id="stressDur" min="5" max="120" value="10"><span id="stressDurVal">10</span></label>
+            <label>Threads <input type="range" id="stressThreads" min="1" max="32" value="8"><span id="stressThreadsVal">8</span></label>
+            <button class="btn-run btn-danger" data-bench="stress_suite">STRESS TEST</button>
+            <button class="btn-secondary" id="btnStopStress">STOP</button>
+          </div>
+          <canvas id="chartStress" width="800" height="200"></canvas>
+          <div class="bench-result" id="resStress">Not run yet</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── GPU / SHADER ───────────────────────────────────────── -->
+    <section class="panel" id="panel-gpu">
+      <div class="panel-header"><h1>GPU & Volume Shader Tests</h1></div>
+      <div class="bench-grid">
+
+        <div class="bench-card bench-card-wide">
+          <div class="bench-card-title">Volume Ray-Marching Shader</div>
+          <div class="shader-layout">
+            <div class="shader-controls">
+              <label>Width <input type="range" id="vsW" min="80" max="640" step="40" value="320"><span id="vsWVal">320</span></label>
+              <label>Height <input type="range" id="vsH" min="60" max="480" step="30" value="240"><span id="vsHVal">240</span></label>
+              <label>Max Steps <input type="range" id="vsSteps" min="32" max="512" step="16" value="128"><span id="vsStepsVal">128</span></label>
+              <label>Step Size <input type="range" id="vsStep" min="1" max="50" value="20"><span id="vsStepVal">0.02</span></label>
+              <label>Time <input type="range" id="vsTime" min="0" max="628" step="1" value="0"><span id="vsTimeVal">0.00</span></label>
+              <label>Threads <input type="range" id="vsThreads" min="1" max="16" value="4"><span id="vsThreadsVal">4</span></label>
+              <button class="btn-run" data-bench="volume_shader">RENDER VOLUME</button>
+              <button class="btn-secondary" id="btnAnimateVolume">ANIMATE</button>
+            </div>
+            <div class="shader-preview">
+              <canvas id="volumeCanvas" width="320" height="240"></canvas>
+              <div class="shader-stats" id="shaderStats">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bench-card">
+          <div class="bench-card-title">GPU Device Info</div>
+          <div id="gpuDeviceList"></div>
+        </div>
+
+        <!-- WebGL Particle Stress -->
+        <div class="bench-card bench-card-wide">
+          <div class="bench-card-title">WebGL Particle Storm (GPU Stress)</div>
+          <div class="bench-controls">
+            <label>Particles <select id="particleCount">
+              <option value="10000">10K</option>
+              <option value="50000" selected>50K</option>
+              <option value="100000">100K</option>
+              <option value="500000">500K</option>
+            </select></label>
+            <button class="btn-run" id="btnParticles">LAUNCH PARTICLES</button>
+            <button class="btn-secondary" id="btnStopParticles">STOP</button>
+          </div>
+          <canvas id="glCanvas" width="800" height="300"></canvas>
+          <div id="glStats">WebGL: Not started</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── MEMORY ─────────────────────────────────────────────── -->
+    <section class="panel" id="panel-memory">
+      <div class="panel-header"><h1>Memory Benchmarks</h1></div>
+      <div class="bench-grid">
+
+        <div class="bench-card">
+          <div class="bench-card-title">Sequential Bandwidth</div>
+          <div class="bench-controls">
+            <label>Buffer (MB) <select id="mbwBuf">
+              <option value="64">64 MB</option>
+              <option value="256" selected>256 MB</option>
+              <option value="512">512 MB</option>
+              <option value="1024">1 GB</option>
+            </select></label>
+            <label>Iterations <input type="range" id="mbwIter" min="1" max="20" value="5"><span id="mbwIterVal">5</span></label>
+            <button class="btn-run" data-bench="memory_bw">RUN</button>
+          </div>
+          <canvas id="chartMbw" width="400" height="180"></canvas>
+          <div class="bench-result" id="resMbw">Not run yet</div>
+        </div>
+
+        <div class="bench-card">
+          <div class="bench-card-title">Cache Hierarchy Latency</div>
+          <div class="bench-controls">
+            <button class="btn-run" data-bench="cache_latency">PROBE CACHE</button>
+          </div>
+          <canvas id="chartCache" width="400" height="260"></canvas>
+          <div class="bench-result" id="resCache">Not run yet</div>
+        </div>
+
+        <!-- Memory bandwidth over time -->
+        <div class="bench-card bench-card-wide">
+          <div class="bench-card-title">Memory Bandwidth Sweep (all sizes)</div>
+          <button class="btn-run" id="btnMbwSweep">RUN SWEEP</button>
+          <canvas id="chartMbwSweep" width="800" height="220"></canvas>
+          <div class="bench-result" id="resMbwSweep"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── REALTIME ───────────────────────────────────────────── -->
+    <section class="panel" id="panel-realtime">
+      <div class="panel-header">
+        <h1>Real-time Monitoring</h1>
+        <div class="rt-controls">
+          <label><input type="checkbox" id="rtPause"> Pause</label>
+          <button class="btn-secondary" id="btnClearRt">Clear</button>
+        </div>
+      </div>
+
+      <div class="rt-grid">
+        <div class="rt-card">
+          <div class="rt-card-title">CPU Utilization (%)</div>
+          <canvas id="rtCpuChart" width="520" height="140"></canvas>
+        </div>
+        <div class="rt-card">
+          <div class="rt-card-title">Per-Core Utilization</div>
+          <canvas id="rtCoreChart" width="520" height="140"></canvas>
+        </div>
+        <div class="rt-card">
+          <div class="rt-card-title">RAM Usage (%)</div>
+          <canvas id="rtRamChart" width="520" height="140"></canvas>
+        </div>
+        <div class="rt-card">
+          <div class="rt-card-title">Network I/O (MB)</div>
+          <canvas id="rtNetChart" width="520" height="140"></canvas>
+        </div>
+        <div class="rt-card rt-card-wide">
+          <div class="rt-card-title">CPU Frequency & Temp Estimation</div>
+          <canvas id="rtTempChart" width="1060" height="140"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── VOLUME 3D ──────────────────────────────────────────── -->
+    <section class="panel" id="panel-volume3d">
+      <div class="panel-header"><h1>3D Volume Visualization</h1></div>
+      <div class="vol3d-layout">
+        <div class="vol3d-controls">
+          <div class="ctrl-group">
+            <div class="ctrl-title">Noise Volume</div>
+            <label>Grid NX <input type="range" id="v3nx" min="8" max="64" step="8" value="32"><span id="v3nxVal">32</span></label>
+            <label>Grid NY <input type="range" id="v3ny" min="8" max="64" step="8" value="32"><span id="v3nyVal">32</span></label>
+            <label>Grid NZ <input type="range" id="v3nz" min="8" max="64" step="8" value="32"><span id="v3nzVal">32</span></label>
+            <label>Scale <input type="range" id="v3scale" min="1" max="16" step="0.5" value="4"><span id="v3scaleVal">4.0</span></label>
+            <label>Octaves <input type="range" id="v3oct" min="1" max="8" value="4"><span id="v3octVal">4</span></label>
+            <label>Time <input type="range" id="v3t" min="0" max="100" step="0.5" value="0"><span id="v3tVal">0.0</span></label>
+            <button class="btn-run" id="btnGenVolume">GENERATE</button>
+            <button class="btn-secondary" id="btnAnimVol3d">ANIMATE</button>
+          </div>
+          <div class="ctrl-group">
+            <div class="ctrl-title">Render Options</div>
+            <label>Opacity <input type="range" id="v3opacity" min="1" max="100" value="60"><span id="v3opacityVal">60</span>%</label>
+            <label>Iso Value <input type="range" id="v3iso" min="1" max="99" value="50"><span id="v3isoVal">0.50</span></label>
+            <label>Color Mode
+              <select id="v3color">
+                <option value="heat">Heat</option>
+                <option value="cool">Cool</option>
+                <option value="rainbow">Rainbow</option>
+                <option value="mono">Mono</option>
+              </select>
+            </label>
+            <label>Rotation Speed <input type="range" id="v3rotspd" min="0" max="100" value="30"><span id="v3rotspdVal">30</span></label>
+          </div>
+        </div>
+        <canvas id="vol3dCanvas" width="720" height="600"></canvas>
+      </div>
+      <div id="vol3dStats"></div>
+    </section>
+
+    <!-- ── HISTORY ────────────────────────────────────────────── -->
+    <section class="panel" id="panel-history">
+      <div class="panel-header">
+        <h1>Benchmark History</h1>
+        <button class="btn-secondary" id="btnRefreshHistory">Refresh</button>
+      </div>
+      <div id="historyTable"></div>
+      <canvas id="historyComparison" width="900" height="300"></canvas>
+    </section>
+
+  </main><!-- /panels -->
+</div><!-- /app -->
+
+<!-- Scripts -->
+<script src="app.js"></script>
+</body>
+</html>
